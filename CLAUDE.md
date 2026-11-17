@@ -14,7 +14,7 @@ This repo is a practice codebase for agentic engineering. All application code l
 - **Never put validation or business logic in a route handler.** Handlers read the request, call one service function, and send the response. Errors go to `next(err)`.
 - **Never let a service touch Express** (`req`, `res`, `next`, `require('express')`). Services take plain arguments, return plain data, and throw `httpError(status, message)` for client errors.
 - **Never put side effects such as email inside a resource service.** They go in a dedicated service (e.g. `src/services/notifications.js`) that the route calls.
-- **Never add files outside `src/` (app code) or `tests/` (tests).** Every file name is kebab-case: `request-logger.js`, never `requestLogger.js` or `RequestLogger.js`.
+- **Never add files outside `src/` (app code) or `tests/` (tests),** and never break the naming conventions below.
 - **Never add a circular import or a lazy `require()` inside a function** to work around one.
 - **Never add a helper to `src/utils/` without first checking whether it belongs in a more specific module.** Resource logic goes in that resource's service, DB-specific helpers in `src/db/`.
 
@@ -42,26 +42,45 @@ npx jest tests/tasks.test.js -t "filters by"     # single test by name
 
 Health check: `GET http://localhost:3000/health`.
 
-## Architecture
+## Folder structure
 
 ```
 src/
-  app.js            builds the Express app and mounts every router; exports app (no listen)
-  server.js         entry point: app.listen(config.PORT)
-  config.js         PORT, DB_PATH, API_KEY from the environment
-  routes/           one router per resource, named exports (usersRouter, tasksRouter, ...)
-  services/         business logic + validation per resource; notifications.js for side effects
+  app.js              builds the Express app and mounts every router; exports app (no listen)
+  server.js           entry point: app.listen(config.PORT)
+  config.js           PORT, DB_PATH, API_KEY from the environment
+  routes/             one router per resource: users, projects, tasks, comments, tags, health, webhooks
+  services/           business logic + validation per resource; notifications.js and webhooks.js
   db/
-    connection.js   shared better-sqlite3 `db` singleton
-    schema.js       createSchema(db), the single schema definition (used by seed AND tests)
-    seed.js         `npm run db:seed`
-    errors.js       isUniqueViolation(err)
-    queries/        one file per table group; the only place SQL lives
-  middleware/       auth.js, request-logger.js, error-handler.js
-  utils/            validation.js, http-error.js, send-email.js
+    connection.js     shared better-sqlite3 `db` singleton
+    schema.js         createSchema(db), the single schema definition (used by seed AND tests)
+    seed.js           `npm run db:seed`
+    errors.js         isUniqueViolation(err)
+    queries/          users, projects, tasks, comments, tags: the only place SQL lives
+  middleware/         auth.js, request-logger.js, error-handler.js
+  utils/              validation.js, http-error.js, send-email.js
+tests/                <resource>.test.js, one per resource
 ```
 
-- **Request flow:** `src/routes/<resource>.js` → `src/services/<resource>.js` → `src/db/queries/<resource>.js`. A service may call several query modules (e.g. tasks reads tags and comments). Routes never import queries.
+Each layer calls only the layer directly below it:
+
+```
+routes/<resource>.js  →  services/<resource>.js  →  db/queries/<resource>.js  →  db/connection.js
+```
+
+- **Routes call services.** A handler reads the request, calls one service function, and sends the response or passes errors to `next(err)`. Routes never import queries or the connection.
+- **Services call queries.** They hold validation and business rules and may call several query modules (e.g. the tasks service reads tags and comments). They never call `db.prepare` or touch Express.
+- **Queries call the database connection.** They are small SQL functions that import `db` from `../connection` and contain no business rules.
+
+## Naming conventions
+
+- **Every file uses kebab-case:** lowercase words joined by hyphens, e.g. `request-logger.js`, `error-handler.js`, `http-error.js`, `send-email.js`. Never camelCase (`requestLogger.js`) or PascalCase (`RequestLogger.js`).
+- Route, service and query files are named after the resource, **lowercase and plural**, with the same name in each layer: `routes/tasks.js`, `services/tasks.js`, `db/queries/tasks.js`.
+- Test files are `tests/<resource>.test.js` (e.g. `tasks.test.js`).
+- Routers are named exports called `<resource>Router` (e.g. `{ tasksRouter }`).
+
+## Architecture notes
+
 - **Mount order in `src/app.js`:** `express.json()`, `requestLogger`, then `/` (health), `/webhooks`, `/users`, `/projects`, `/tasks`, `/tasks/:id/comments`, `/tasks/:id/tags`, `/tags`, and finally `errorHandler`. The nested comment and task-tag routers use `express.Router({ mergeParams: true })` to read `:id`.
 - **Errors:** services throw `httpError(status, message)` from `src/utils/http-error.js`. They map SQLite UNIQUE failures to 409 with `isUniqueViolation`. `errorHandler` renders `{ error: message }` with `err.status || 500` and logs stack traces only for 5xx.
 - **DB:** `connection.js` uses `:memory:` when `NODE_ENV=test`, otherwise `DB_PATH` or `taskr.db`. Foreign keys are enabled. Schema changes go in `src/db/schema.js` only.
