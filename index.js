@@ -5,6 +5,7 @@ const { requestLogger } = require('./src/middleware/request-logger');
 const { errorHandler } = require('./src/middleware/error-handler');
 const { healthRouter } = require('./src/routes/health');
 const { webhooksRouter } = require('./src/routes/webhooks');
+const { tagsRouter, taskTagsRouter } = require('./src/routes/tags');
 
 const app = express();
 
@@ -13,6 +14,8 @@ app.use(requestLogger);
 
 app.use('/', healthRouter);
 app.use('/webhooks', webhooksRouter);
+app.use('/tasks/:id/tags', taskTagsRouter);
+app.use('/tags', tagsRouter);
 app.use(router);
 app.use(errorHandler);
 
