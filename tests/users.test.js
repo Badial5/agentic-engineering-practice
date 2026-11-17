@@ -102,3 +102,58 @@ describe('User endpoints', () => {
     expect(res.body).toHaveLength(2);
   });
 });
+
+describe('User endpoint error cases', () => {
+  beforeEach(() => {
+    jest.spyOn(console, 'log').mockImplementation(() => {});
+  });
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  test('POST /users rejects an invalid email address', async () => {
+    const res = await request(app).post('/users').send({ name: 'Bad Email', email: 'not-an-email' });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('Invalid email address');
+  });
+
+  test('POST /users rejects a duplicate email with a clear message', async () => {
+    await request(app).post('/users').send({ name: 'First', email: 'dupe@test.com' });
+    const res = await request(app).post('/users').send({ name: 'Second', email: 'dupe@test.com' });
+    expect(res.status).toBe(409);
+    expect(res.body.error).toBe('email already exists');
+  });
+
+  test('PUT /users/:id keeps fields that are not sent', async () => {
+    db.prepare('INSERT INTO users (id, name, email) VALUES (5, ?, ?)').run('Keep Me', 'keep@test.com');
+    const res = await request(app).put('/users/5').send({ name: 'Renamed' });
+    expect(res.status).toBe(200);
+    expect(res.body.name).toBe('Renamed');
+    expect(res.body.email).toBe('keep@test.com');
+  });
+
+  test('PUT /users/:id returns 404 when the user does not exist', async () => {
+    const res = await request(app).put('/users/999').send({ name: 'Nobody' });
+    expect(res.status).toBe(404);
+    expect(res.body.error).toBe('User not found');
+  });
+
+  test('DELETE /users/:id requires an API key', async () => {
+    db.prepare('INSERT INTO users (id, name, email) VALUES (6, ?, ?)').run('Protected', 'protected@test.com');
+    const res = await request(app).delete('/users/6');
+    expect(res.status).toBe(401);
+    expect(res.body.error).toBe('Unauthorized');
+  });
+
+  test('DELETE /users/:id rejects a wrong API key', async () => {
+    const res = await request(app).delete('/users/6').set('x-api-key', 'wrong');
+    expect(res.status).toBe(401);
+    expect(res.body.error).toBe('Unauthorized');
+  });
+
+  test('DELETE /users/:id returns 404 when the user does not exist', async () => {
+    const res = await request(app).delete('/users/999').set('x-api-key', 'dev-key');
+    expect(res.status).toBe(404);
+    expect(res.body.error).toBe('User not found');
+  });
+});

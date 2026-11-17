@@ -101,3 +101,57 @@ describe('Project endpoints', () => {
     expect(check.status).toBe(404);
   });
 });
+
+describe('Project endpoint error cases', () => {
+  test('GET /projects/:id reports zero stats for a project with no tasks', async () => {
+    db.prepare('INSERT INTO projects (id, name) VALUES (7, ?)').run('Empty');
+    const res = await request(app).get('/projects/7');
+    expect(res.status).toBe(200);
+    expect(res.body.stats).toEqual({ total: 0, active: 0, completed: 0, archived: 0 });
+  });
+
+  test('GET /projects/:id counts tasks by status', async () => {
+    db.prepare('INSERT INTO projects (id, name) VALUES (8, ?)').run('Busy');
+    const insert = db.prepare('INSERT INTO tasks (title, status, project_id) VALUES (?, ?, 8)');
+    insert.run('a', 'active');
+    insert.run('b', 'active');
+    insert.run('c', 'completed');
+    insert.run('d', 'archived');
+    const res = await request(app).get('/projects/8');
+    expect(res.body.stats).toEqual({ total: 4, active: 2, completed: 1, archived: 1 });
+  });
+
+  test('PUT /projects/:id keeps fields that are not sent', async () => {
+    db.prepare('INSERT INTO projects (id, name, description, owner_id) VALUES (9, ?, ?, 1)').run('Original', 'Keep this');
+    const res = await request(app).put('/projects/9').send({ name: 'Renamed' });
+    expect(res.status).toBe(200);
+    expect(res.body.name).toBe('Renamed');
+    expect(res.body.description).toBe('Keep this');
+    expect(res.body.owner_id).toBe(1);
+  });
+
+  test('PUT /projects/:id returns 404 when the project does not exist', async () => {
+    const res = await request(app).put('/projects/999').send({ name: 'Nothing' });
+    expect(res.status).toBe(404);
+    expect(res.body.error).toBe('Project not found');
+  });
+
+  test('DELETE /projects/:id requires an API key', async () => {
+    db.prepare('INSERT INTO projects (id, name) VALUES (10, ?)').run('Protected');
+    const res = await request(app).delete('/projects/10');
+    expect(res.status).toBe(401);
+    expect(res.body.error).toBe('Unauthorized');
+  });
+
+  test('DELETE /projects/:id returns 404 when the project does not exist', async () => {
+    const res = await request(app).delete('/projects/999').set('x-api-key', 'dev-key');
+    expect(res.status).toBe(404);
+    expect(res.body.error).toBe('Project not found');
+  });
+
+  test('POST /projects rejects a blank name', async () => {
+    const res = await request(app).post('/projects').send({ name: '   ' });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('name is required');
+  });
+});
