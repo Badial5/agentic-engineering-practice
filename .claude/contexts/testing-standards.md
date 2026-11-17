@@ -5,8 +5,7 @@ Follow these rules whenever you write or change tests for the Taskr API, or when
 ## File naming
 
 - One file per resource: `tests/<resource>.test.js`, **all lowercase**, using the same plural resource name as the route file. Examples: `tasks.test.js`, `projects.test.js`, `comments.test.js`.
-- Don't copy the legacy names `userTest.js` or `test-projects.js`. They're a known inconsistency that will be renamed in the refactor.
-- The `.test.js` suffix matters. Jest's `testMatch` in `package.json` only picks up `tests/*.test.js` (plus the two legacy names), so a file named any other way is silently skipped.
+- The `.test.js` suffix matters. Jest's `testMatch` in `package.json` only picks up `tests/*.test.js`, so a file named any other way is silently skipped.
 
 ## Tools and database
 
@@ -18,9 +17,9 @@ Every test file starts with this setup:
 process.env.NODE_ENV = 'test'; // must come before any require of the app or DB
 
 const request = require('supertest');
-const app = require('../index');
-const { db } = require('../DB');
-const { createSchema } = require('./schema');
+const app = require('../src/app');
+const { db } = require('../src/db/connection');
+const { createSchema } = require('../src/db/schema');
 
 beforeAll(() => {
   createSchema(db);
@@ -32,11 +31,11 @@ beforeEach(() => {
 });
 ```
 
-- `NODE_ENV=test` makes `DB.js` open `:memory:`, so setting it first is required.
+- `NODE_ENV=test` makes `src/db/connection.js` open `:memory:`, so setting it first is required.
 - Send requests through `request(app)`. Don't call `app.listen()`.
 - Insert the data each test needs in `beforeEach` or in the test itself, either with `db.prepare(...)` or through the API. Don't rely on data left behind by another test.
 - Protected endpoints need `.set('x-api-key', 'dev-key')`.
-- If the schema changes, update `tests/schema.js` to match `db/seed.js`.
+- The schema comes from `src/db/schema.js`, the same definition the seed script uses. Never copy it into a test file.
 
 ## Coverage per endpoint
 
