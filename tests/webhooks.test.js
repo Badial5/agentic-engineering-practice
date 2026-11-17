@@ -1,7 +1,7 @@
 process.env.NODE_ENV = 'test';
 
 const request = require('supertest');
-const app = require('../index');
+const app = require('../src/app');
 
 beforeEach(() => {
   jest.spyOn(console, 'log').mockImplementation(() => {});
