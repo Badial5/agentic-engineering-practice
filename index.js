@@ -8,6 +8,7 @@ const { webhooksRouter } = require('./src/routes/webhooks');
 const { tagsRouter, taskTagsRouter } = require('./src/routes/tags');
 const { commentsRouter } = require('./src/routes/comments');
 const { usersRouter } = require('./src/routes/users');
+const { projectsRouter } = require('./src/routes/projects');
 
 const app = express();
 
@@ -17,6 +18,7 @@ app.use(requestLogger);
 app.use('/', healthRouter);
 app.use('/webhooks', webhooksRouter);
 app.use('/users', usersRouter);
+app.use('/projects', projectsRouter);
 app.use('/tasks/:id/comments', commentsRouter);
 app.use('/tasks/:id/tags', taskTagsRouter);
 app.use('/tags', tagsRouter);
