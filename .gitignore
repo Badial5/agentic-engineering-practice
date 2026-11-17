@@ -1,0 +1,3 @@
+node_modules/
+taskr.db*
+.mcp.json
