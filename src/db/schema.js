@@ -1,3 +1,8 @@
+/**
+ * @description Creates every Taskr table (users, projects, tasks, comments, tags, task_tags) if it does not already exist.
+ * @param {import('better-sqlite3').Database} db - The database connection to create the tables in.
+ * @returns {void}
+ */
 function createSchema(db) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS users (

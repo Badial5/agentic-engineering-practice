@@ -20,16 +20,35 @@ function getProjectStats(projectId) {
   return stats;
 }
 
+/**
+ * @description Lists every project, newest first.
+ * @returns {Object[]} All project rows.
+ */
 function listProjects() {
   return projectQueries.findAllProjects();
 }
 
+/**
+ * @description Fetches a project by ID with task counts per status attached as `stats`.
+ * @param {string|number} idParam - The project ID from the route, parsed with `parseInt`.
+ * @returns {Object} The project row plus `stats: { total, active, completed, archived }`.
+ * @throws {Error & { status: number }} 404 "Project not found".
+ */
 function getProject(idParam) {
   const id = parseInt(idParam);
   const project = requireProject(id);
   return { ...project, stats: getProjectStats(id) };
 }
 
+/**
+ * @description Validates and creates a project, returning the stored row.
+ * @param {Object} [data={}] - The request body.
+ * @param {string} data.name - Project name (required, non-empty).
+ * @param {string} [data.description] - Optional description.
+ * @param {number} [data.owner_id] - Optional owner's user ID.
+ * @returns {Object} The created project row.
+ * @throws {Error & { status: number }} 400 "name is required".
+ */
 function createProject({ name, description, owner_id } = {}) {
   if (!name || !isNonEmptyString(name)) {
     throw httpError(400, 'name is required');
@@ -42,6 +61,16 @@ function createProject({ name, description, owner_id } = {}) {
   return projectQueries.findProjectById(id);
 }
 
+/**
+ * @description Partially updates a project, keeping the existing value for any field left `undefined`.
+ * @param {string|number} idParam - The project ID from the route, parsed with `parseInt`.
+ * @param {Object} [data={}] - The fields to change.
+ * @param {string} [data.name] - New name.
+ * @param {string} [data.description] - New description.
+ * @param {number} [data.owner_id] - New owner's user ID.
+ * @returns {Object} The updated project row.
+ * @throws {Error & { status: number }} 404 "Project not found".
+ */
 function updateProject(idParam, data = {}) {
   const id = parseInt(idParam);
   const existing = requireProject(id);
@@ -53,6 +82,12 @@ function updateProject(idParam, data = {}) {
   return projectQueries.findProjectById(id);
 }
 
+/**
+ * @description Deletes a project by ID.
+ * @param {string|number} idParam - The project ID from the route, parsed with `parseInt`.
+ * @returns {{ deleted: true }} Confirmation of the deletion.
+ * @throws {Error & { status: number }} 404 "Project not found".
+ */
 function deleteProject(idParam) {
   const deleted = projectQueries.deleteProject(parseInt(idParam));
   if (deleted === 0) {

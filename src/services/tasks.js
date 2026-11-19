@@ -17,6 +17,17 @@ function assertValidStatus(status) {
   }
 }
 
+/**
+ * @description Lists tasks filtered by status, project and assignee, paginated with a default page size of 20 and a maximum of 100.
+ * @param {Object} [query={}] - The request query string.
+ * @param {string} [query.status] - Only tasks with this status (`active`, `completed` or `archived`).
+ * @param {string} [query.project_id] - Only tasks in this project.
+ * @param {string} [query.assignee_id] - Only tasks assigned to this user.
+ * @param {string} [query.page] - 1-based page number (default 1).
+ * @param {string} [query.page_size] - Tasks per page (default 20, max 100).
+ * @returns {Object[]} The matching task rows, newest first.
+ * @throws {Error & { status: number }} 400 if `status` is not a valid task status.
+ */
 function listTasks({ status, project_id, assignee_id, page, page_size } = {}) {
   assertValidStatus(status);
 
@@ -32,7 +43,12 @@ function listTasks({ status, project_id, assignee_id, page, page_size } = {}) {
   });
 }
 
-/** A single task with its tags and comments attached. */
+/**
+ * @description Fetches a single task by ID with its `tags` and `comments` attached.
+ * @param {string|number} idParam - The task ID from the route, parsed with `parseInt`.
+ * @returns {Object} The task row plus `tags` and `comments` arrays.
+ * @throws {Error & { status: number }} 404 "Task not found".
+ */
 function getTask(idParam) {
   const id = parseInt(idParam);
   const task = taskQueries.findTaskById(id);
@@ -44,6 +60,17 @@ function getTask(idParam) {
   return task;
 }
 
+/**
+ * @description Validates and creates a task, checking that any referenced project and assignee exist.
+ * @param {Object} [data={}] - The request body.
+ * @param {string} data.title - Task title (required, non-empty).
+ * @param {string} [data.description] - Optional description.
+ * @param {string|number} [data.project_id] - Optional project ID (must exist).
+ * @param {string|number} [data.assignee_id] - Optional assignee's user ID (must exist).
+ * @param {string} [data.due_date] - Optional due date.
+ * @returns {Object} The created task row.
+ * @throws {Error & { status: number }} 400 if the title is missing or the project or assignee does not exist.
+ */
 function createTask({ title, description, project_id, assignee_id, due_date } = {}) {
   if (!title || !isNonEmptyString(title)) {
     throw httpError(400, 'title is required');
@@ -64,6 +91,19 @@ function createTask({ title, description, project_id, assignee_id, due_date } = 
   return taskQueries.findTaskById(id);
 }
 
+/**
+ * @description Partially updates a task, keeping unset fields and stamping or clearing `completed_at` on status changes.
+ * @param {string|number} idParam - The task ID from the route, parsed with `parseInt`.
+ * @param {Object} [data={}] - The fields to change.
+ * @param {string} [data.title] - New title.
+ * @param {string} [data.description] - New description.
+ * @param {string} [data.status] - New status (`active`, `completed` or `archived`).
+ * @param {number} [data.project_id] - New project ID.
+ * @param {number} [data.assignee_id] - New assignee's user ID.
+ * @param {string} [data.due_date] - New due date.
+ * @returns {Object} The updated task row.
+ * @throws {Error & { status: number }} 404 "Task not found"; 400 if `status` is invalid.
+ */
 function updateTask(idParam, data = {}) {
   const id = parseInt(idParam);
   const existing = taskQueries.findTaskById(id);
@@ -93,6 +133,12 @@ function updateTask(idParam, data = {}) {
   return taskQueries.findTaskById(id);
 }
 
+/**
+ * @description Deletes a task by ID.
+ * @param {string|number} idParam - The task ID from the route, parsed with `parseInt`.
+ * @returns {{ deleted: true }} Confirmation of the deletion.
+ * @throws {Error & { status: number }} 404 "Task not found".
+ */
 function deleteTask(idParam) {
   const deleted = taskQueries.deleteTask(parseInt(idParam));
   if (deleted === 0) {
