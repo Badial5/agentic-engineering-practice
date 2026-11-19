@@ -94,6 +94,12 @@ routes/<resource>.js  →  services/<resource>.js  →  db/queries/<resource>.js
 - Each test file sets `process.env.NODE_ENV = 'test'` **before** requiring `../src/app` and `../src/db/connection`, so the shared `db` is in-memory. Tests call `createSchema(db)` (from `../src/db/schema`) in `beforeAll` and wipe all tables in `beforeEach`.
 - Protected endpoints in tests use `.set('x-api-key', 'dev-key')`.
 
+## Verification
+
+- **After completing any significant change, run `/verify-app` before committing.** It runs the full suite with `npm test -- --runInBand`, fixes failures in the implementation, and reports the result.
+- **Do not commit if any tests are failing.**
+- The test suite uses supertest and covers all API endpoints, sending real HTTP requests through `src/app.js` against an in-memory database. A passing run confirms the full application is working correctly.
+
 ## Repo conventions
 
 - Commits use Conventional Commits. `.claude/commands/commit-push-pr.md` provides a `/commit-push-pr` command (commits staged changes only, pushes, opens a PR via `gh`).
